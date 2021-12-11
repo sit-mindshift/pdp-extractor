@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	pdp "mase.rip/pdp/pdp"
+	pdp "github.com/sit-mindshift/pdp-extractor/pdp"
 )
 
 func main() {

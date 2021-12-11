@@ -1,4 +1,4 @@
-module mase.rip/pdp
+module github.com/sit-mindshift/pdp-extractor
 
 go 1.17
 
