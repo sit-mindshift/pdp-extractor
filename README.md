@@ -1,6 +1,6 @@
 # About pdp-extractor
 
-Package `pdp-extractor` is go based product details crawler for the most popuplar shops.
+Package `pdp-extractor` is a GO based product details crawler for the most popuplar shops.
 You can use it if you want to show a minimalistic preview of a product based on the URL only.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/sit-mindshift/pdp-extractor/pdp.svg)](https://pkg.go.dev/github.com/sit-mindshift/pdp-extractor/pdp)
