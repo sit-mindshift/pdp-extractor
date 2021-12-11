@@ -1,3 +1,5 @@
+// The Product Detail Page Extractor crawles all usefull informations from a product details page
+// which might be relevant for creating a thubnail preview of a article
 package pdp_extractor
 
 import (
@@ -12,8 +14,6 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-// The ProductDetailPageExtractor crawles all usefull informations from a product details page
-// which might be relevant for creating a thubnail preview of a article
 // The Input field you should set are
 //   - Url : the url of the article details page which should be crawled
 //   - Screenshot file : the path to the local file where to create the screenshot of the page
