@@ -21,11 +21,10 @@ import (
 //   - MetaTitle : the title of the product
 //   - MetaDescription : the description of the product
 // @Author: Sebastian Kroll
-type ProductDetailPageExtractor struct {
-	Url             string
-	ScreenshotFile  string
-	MetaTitle       string
-	MetaDescription string
+type ProductDetailPageExtractorResults struct {
+	ScreenshotBuffer []byte
+	MetaTitle        string
+	MetaDescription  string
 }
 
 func identifyScreenshotPageSelector(url string) (response string, err error) {
@@ -41,7 +40,7 @@ func identifyScreenshotPageSelector(url string) (response string, err error) {
 }
 
 // Starts the crawling of the product details page
-func (s *ProductDetailPageExtractor) Run() (err error) {
+func Run(url string) (result ProductDetailPageExtractorResults, err error) {
 	// create context
 	ctx, cancel := chromedp.NewContext(
 		context.Background(),
@@ -51,47 +50,48 @@ func (s *ProductDetailPageExtractor) Run() (err error) {
 
 	defer cancel()
 
-	var buf []byte
-
-	if selector, error := identifyScreenshotPageSelector(s.Url); error == nil {
+	if selector, error := identifyScreenshotPageSelector(url); error == nil {
 		if err := chromedp.Run(ctx,
 			chromedp.EmulateViewport(1920, 3000),
-			elementScreenshot(s.Url, selector, &buf),
+			elementScreenshot(url, selector, &result.ScreenshotBuffer),
 		); err != nil {
 			log.Println(err.Error())
-			return err
+			return result, err
 		} else {
-			log.Printf("created a screenshot of %s using the page selector %s\n", s.Url, selector)
+			log.Printf("created a screenshot of %s using the page selector %s\n", url, selector)
 		}
 
 	} else {
 		// capture entire browser viewport, returning png with quality=90
 		if err := chromedp.Run(ctx,
 			chromedp.EmulateViewport(1920, 3000),
-			fullScreenshot(s.Url, 90, &buf)); err != nil {
+			fullScreenshot(url, 90, &result.ScreenshotBuffer)); err != nil {
 			log.Println(err.Error())
-			return err
+			return result, err
 		} else {
-			log.Printf("created a screenshot of %s using fullscreen mode\n", s.Url)
+			log.Printf("created a screenshot of %s using fullscreen mode\n", url)
 		}
 	}
+	extractMetaInformation(ctx, &result)
+	return result, err
+}
 
-	s.extractMetaInformation(ctx)
-
-	if err := ioutil.WriteFile(s.ScreenshotFile, buf, 0o644); err != nil {
-		log.Println(err.Error())
+func WriteScreenshotToFile(filename string, result ProductDetailPageExtractorResults) (err error) {
+	log.Printf("WriteScreenshotToFile of  buff len %d \n", len(result.ScreenshotBuffer))
+	err = ioutil.WriteFile(filename, result.ScreenshotBuffer, 0o644)
+	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *ProductDetailPageExtractor) extractMetaInformation(ctx context.Context) {
+func extractMetaInformation(ctx context.Context, result *ProductDetailPageExtractorResults) {
 
-	chromedp.Run(ctx, chromedp.InnerHTML(`head > title`, &s.MetaTitle))
-	if len(s.MetaTitle) == 0 {
-		chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="title"]`, "content", &s.MetaTitle, nil))
+	chromedp.Run(ctx, chromedp.InnerHTML(`head > title`, &result.MetaTitle))
+	if len(result.MetaTitle) == 0 {
+		chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="title"]`, "content", &result.MetaTitle, nil))
 	}
-	chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="description"]`, "content", &s.MetaDescription, nil))
+	chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="description"]`, "content", &result.MetaDescription, nil))
 }
 
 // elementScreenshot takes a screenshot of a specific element.

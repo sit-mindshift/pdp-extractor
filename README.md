@@ -28,27 +28,9 @@ import (
 
 func main() {
 
-	p := pdp.ProductDetailPageExtractor{
-		Url:            "https://www.amazon.de/dp/B07SPTL3SQ/ref=nosim?tag=masedeveloper-21",
-		ScreenshotFile: "./out/amazon.de.png",
-	}
-	p.Run()
-	fmt.Printf("got PDP with url:%s title: %s and description:%s\n", p.Url, p.MetaTitle, p.MetaDescription)
-
-	p = pdp.ProductDetailPageExtractor{
-		Url:            "https://www.lidl.de/p/puma-herren-t-shirt-teamgoal-mit-rundhalsausschnitt/p100339220",
-		ScreenshotFile: "./out/lidl.de.png",
-	}
-	p.Run()
-	fmt.Printf("got PDP with url:%s title: %s and description:%s\n", p.Url, p.MetaTitle, p.MetaDescription)
-
-	p = pdp.ProductDetailPageExtractor{
-		Url:            "https://www.kaufland.de/product/404444772/",
-		ScreenshotFile: "./out/kaufland.de.png",
-	}
-	p.Run()
-	fmt.Printf("got PDP with url:%s title: %s and description:%s\n", p.Url, p.MetaTitle, p.MetaDescription)
-
+	pdpResult, _ := pdp.Run("https://www.amazon.de/dp/B07SPTL3SQ/ref=nosim?tag=masedeveloper-21")
+	fmt.Printf("got PDP with title: %s and description:%s\n", pdpResult.MetaTitle, pdpResult.MetaDescription)
+	pdp.WriteScreenshotToFile("./out/amazon.de.png", pdpResult)
 	fmt.Printf("DONE!")
 }
 ```
