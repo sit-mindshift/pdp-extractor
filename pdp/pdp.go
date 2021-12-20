@@ -4,12 +4,9 @@ package pdp_extractor
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	s "strings"
-	"time"
 
 	"github.com/chromedp/chromedp"
 )
@@ -22,9 +19,89 @@ import (
 //   - MetaDescription : the description of the product
 // @Author: Sebastian Kroll
 type ProductDetailPageExtractorResults struct {
-	ScreenshotBuffer []byte
-	MetaTitle        string
-	MetaDescription  string
+	MetaTitle       string
+	MetaDescription string
+	MetaImage       string
+}
+
+// Starts the crawling of the product details page
+func Run(url string) (result ProductDetailPageExtractorResults, err error) {
+	log.Printf("Run %s", url)
+
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.Flag("disable-web-security", true),
+		chromedp.DisableGPU,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.NoFirstRun,
+	)
+
+	allocCtx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer cancel()
+
+	// create context
+	ctx, cancel := chromedp.NewContext(
+		allocCtx,
+		chromedp.WithLogf(log.Printf),
+		//chromedp.WithDebugf(log.Printf),
+	)
+	defer cancel()
+
+	/*
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	*/
+
+	extractMetaTaskInformation(ctx, url, &result)
+	return result, err
+}
+
+func extractMetaTaskInformation(ctx context.Context, url string, result *ProductDetailPageExtractorResults) {
+
+	/*
+		//var val1, val2 string
+		var nodes1 []*cdp.Node
+		var nodes2 []*cdp.Node
+
+		chromedp.Run(ctx, chromedp.Tasks{
+			chromedp.Navigate(url),
+			chromedp.Nodes(`meta[property="og:image"]`, &nodes2, chromedp.AtLeast(0)),
+		})
+
+		chromedp.Run(ctx, chromedp.Tasks{
+			chromedp.Nodes("#landingImage", &nodes1, chromedp.AtLeast(0)),
+		})
+
+		//document.querySelector("head > meta:nth-child(43)")
+
+		for _, n := range nodes1 {
+			u := n.AttributeValue("src")
+			fmt.Printf("nodes1: %s | src = %s\n", n.LocalName, u)
+		}
+
+		for _, n := range nodes2 {
+			u := n.AttributeValue("content")
+			fmt.Printf("nodes2: %s | content = %s\n", n.LocalName, u)
+		}
+	*/
+
+	chromedp.Run(ctx, chromedp.Navigate(url))
+
+	chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="title"]`, "content", &result.MetaTitle, nil, chromedp.AtLeast(0)))
+
+	if len(result.MetaTitle) == 0 {
+		chromedp.Run(ctx, chromedp.Navigate(url), chromedp.InnerHTML(`head > title`, &result.MetaTitle, chromedp.AtLeast(0)))
+	}
+	chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="description"]`, "content", &result.MetaDescription, nil, chromedp.AtLeast(0)))
+
+	chromedp.Run(ctx, chromedp.AttributeValue(`meta[property="og:image"]`, "content", &result.MetaImage, nil, chromedp.AtLeast(0)))
+
+	// document.querySelector("#landingImage")
+	if len(result.MetaImage) == 0 {
+		log.Printf("fallback meta image")
+		chromedp.Run(ctx, chromedp.AttributeValue(`#landingImage`, "src", &result.MetaImage, nil, chromedp.AtLeast(0)))
+	}
+
 }
 
 func identifyScreenshotPageSelector(url string) (response string, err error) {
@@ -35,80 +112,7 @@ func identifyScreenshotPageSelector(url string) (response string, err error) {
 	} else if s.Contains(url, "kaufland") {
 		return `//*[@id="__layout"]/div[1]/div[1]`, nil
 	}
-	return "", errors.New(fmt.Sprintf("No PDP selector found for %s", url))
 
-}
+	return "", fmt.Errorf("no pdp selector found for %s", url)
 
-// Starts the crawling of the product details page
-func Run(url string) (result ProductDetailPageExtractorResults, err error) {
-	// create context
-	ctx, cancel := chromedp.NewContext(
-		context.Background(),
-		// chromedp.WithDebugf(log.Printf),
-	)
-	ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
-
-	defer cancel()
-
-	if selector, error := identifyScreenshotPageSelector(url); error == nil {
-		if err := chromedp.Run(ctx,
-			chromedp.EmulateViewport(1920, 3000),
-			elementScreenshot(url, selector, &result.ScreenshotBuffer),
-		); err != nil {
-			log.Println(err.Error())
-			return result, err
-		} else {
-			log.Printf("created a screenshot of %s using the page selector %s\n", url, selector)
-		}
-
-	} else {
-		// capture entire browser viewport, returning png with quality=90
-		if err := chromedp.Run(ctx,
-			chromedp.EmulateViewport(1920, 3000),
-			fullScreenshot(url, 90, &result.ScreenshotBuffer)); err != nil {
-			log.Println(err.Error())
-			return result, err
-		} else {
-			log.Printf("created a screenshot of %s using fullscreen mode\n", url)
-		}
-	}
-	extractMetaInformation(ctx, &result)
-	return result, err
-}
-
-func WriteScreenshotToFile(filename string, result ProductDetailPageExtractorResults) (err error) {
-	log.Printf("WriteScreenshotToFile of  buff len %d \n", len(result.ScreenshotBuffer))
-	err = ioutil.WriteFile(filename, result.ScreenshotBuffer, 0o644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func extractMetaInformation(ctx context.Context, result *ProductDetailPageExtractorResults) {
-
-	chromedp.Run(ctx, chromedp.InnerHTML(`head > title`, &result.MetaTitle))
-	if len(result.MetaTitle) == 0 {
-		chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="title"]`, "content", &result.MetaTitle, nil))
-	}
-	chromedp.Run(ctx, chromedp.AttributeValue(`meta[name="description"]`, "content", &result.MetaDescription, nil))
-}
-
-// elementScreenshot takes a screenshot of a specific element.
-func elementScreenshot(urlstr, sel string, res *[]byte) chromedp.Tasks {
-	return chromedp.Tasks{
-		chromedp.Navigate(urlstr),
-		chromedp.Screenshot(sel, res, chromedp.NodeVisible),
-	}
-}
-
-// fullScreenshot takes a screenshot of the entire browser viewport.
-//
-// Note: chromedp.FullScreenshot overrides the device's emulation settings. Use
-// device.Reset to reset the emulation and viewport settings.
-func fullScreenshot(urlstr string, quality int, res *[]byte) chromedp.Tasks {
-	return chromedp.Tasks{
-		chromedp.Navigate(urlstr),
-		chromedp.FullScreenshot(res, quality),
-	}
 }
